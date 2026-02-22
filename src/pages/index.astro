@@ -1,17 +1,123 @@
 ---
-
+const proyectos = [
+  { title: "Dashboard Listo", url: "#", desc: "El bot está operativo. Prueba a escanear tus proyectos.", tech: ["Astro", "Node.js"] },
+];
 ---
 
-<html lang="en">
+<html lang="es">
 	<head>
 		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
 		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+		<title>Gustavo Soto | Dashboard de Proyectos</title>
 	</head>
-	<body>
-		<h1>Astro</h1>
+	<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+		
+		<main class="max-w-6xl mx-auto p-6">
+			<header class="flex flex-col md:flex-row justify-between items-center py-10 border-b border-slate-800 mb-10 gap-6">
+				<div>
+					<h1 class="text-4xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
+						Gustavo Soto
+					</h1>
+					<p class="text-slate-400">Escáner Automático de Webs</p>
+				</div>
+                <div class="flex gap-2 w-full md:w-auto">
+                    <input 
+                        type="url" 
+                        id="urlInput" 
+                        placeholder="https://tupagina.com" 
+                        class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 focus:border-cyan-500 outline-none md:w-80"
+                    />
+                    <button id="btnEscanear" class="bg-cyan-600 hover:bg-cyan-500 px-6 py-2 rounded-lg font-bold transition">
+                        Escanear
+                    </button>
+                </div>
+			</header>
+
+            <div id="status" class="text-center mb-6 h-6 text-cyan-400 font-mono text-xs uppercase tracking-widest"></div>
+
+			<div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+				{proyectos.map((p) => (
+					<div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl hover:border-cyan-500/50 transition group">
+						<div class="aspect-video bg-slate-800 flex items-center justify-center text-slate-600 text-[10px] tracking-widest uppercase overflow-hidden">
+							Esperando URL
+						</div>
+						<div class="p-5">
+							<h3 class="text-xl font-bold mb-2">{p.title}</h3>
+							<p class="text-sm text-slate-400 mb-4 line-clamp-2">{p.desc}</p>
+                            <div class="flex gap-2">
+                                {p.tech.map(t => <span class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 border border-slate-700">{t}</span>)}
+                            </div>
+						</div>
+					</div>
+				))}
+			</div>
+		</main>
+
+		<script>
+			const btn = document.getElementById('btnEscanear');
+			const input = document.getElementById('urlInput') as HTMLInputElement;
+			const status = document.getElementById('status');
+			const grid = document.getElementById('grid');
+
+			btn?.addEventListener('click', async () => {
+				let url = input.value.trim();
+				if (!url) return;
+
+                // Forzar https si no lo tiene
+                if (!/^https?:\/\//i.test(url)) {
+                    url = 'https://' + url;
+                }
+
+				status!.textContent = ">> Extrayendo datos de " + url + "...";
+				
+				try {
+					const res = await fetch('/api/scan', {
+						method: 'POST',
+						body: JSON.stringify({ url }),
+						headers: { 'Content-Type': 'application/json' }
+					});
+
+					const textResponse = await res.text();
+					let data;
+					try {
+						data = JSON.parse(textResponse);
+					} catch (e) {
+						status!.textContent = "!! ERROR CRÍTICO DEL SERVIDOR";
+						return;
+					}
+
+					if (data.error) {
+						status!.textContent = "!! ERROR: " + data.error;
+					} else {
+						status!.textContent = ">> ¡PROYECTO AÑADIDO CON ÉXITO!";
+						
+                        // Usamos un servicio gratuito para generar la captura de pantalla sobre la marcha
+                        const urlCaptura = `https://image.thum.io/get/width/800/crop/600/${url}`;
+
+						const card = document.createElement('div');
+                        card.className = "bg-slate-900 border border-cyan-500/50 rounded-xl overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-500 group";
+                        card.innerHTML = `
+                            <div class="aspect-video bg-slate-800 relative overflow-hidden">
+                                <div class="absolute inset-0 flex items-center justify-center">
+                                    <div class="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+                                </div>
+                                <img src="${urlCaptura}" alt="Captura de ${data.title}" class="w-full h-full object-cover relative z-10 opacity-80 group-hover:opacity-100 transition-opacity duration-300" onload="this.previousElementSibling.style.display='none'" onerror="this.style.display='none'" />
+                            </div>
+                            <div class="p-5">
+                                <h3 class="text-xl font-bold mb-2 text-white">${data.title}</h3>
+                                <p class="text-sm text-slate-400 mb-4 line-clamp-2">${data.description}</p>
+                                <div class="flex gap-2 flex-wrap">
+                                    ${data.tech.map((t:any) => `<span class="text-[10px] bg-cyan-950 text-cyan-400 px-2 py-1 rounded border border-cyan-500/20">${t}</span>`).join('')}
+                                </div>
+                            </div>
+                        `;
+						grid!.prepend(card);
+                        input.value = "";
+					}
+				} catch (err) {
+					status!.textContent = "!! ERROR DE CONEXIÓN";
+				}
+			});
+		</script>
 	</body>
 </html>
